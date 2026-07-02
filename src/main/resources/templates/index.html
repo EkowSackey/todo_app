@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tasks</title>
+    <link rel="stylesheet" th:href="@{/styles.css}">
+</head>
+<body>
+    <header>
+        <div class="header-inner">
+            <h1>Tasks</h1>
+            <span class="badge" th:text="${tasks.size()}">0</span>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <section class="card">
+            <p class="card-title">New Task</p>
+            <form method="post" action="/tasks">
+                <div class="field">
+                    <label for="title">Title <span class="required">*</span></label>
+                    <input id="title" type="text" name="title"
+                           placeholder="What needs to be done?" required maxlength="255">
+                </div>
+                <div class="field">
+                    <label for="description">Description</label>
+                    <textarea id="description" name="description"
+                              rows="2" maxlength="500" placeholder="Optional details…"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Add Task</button>
+                <p class="error" th:if="${error}" th:text="${error}"></p>
+            </form>
+        </section>
+
+        <section class="card">
+            <p class="card-title">All Tasks</p>
+
+            <p class="empty" th:if="${tasks.isEmpty()}">No tasks yet — add one above.</p>
+
+            <ul th:unless="${tasks.isEmpty()}">
+                <li th:each="task : ${tasks}" th:classappend="${task.completed} ? 'completed' : ''">
+                    <div class="task-content">
+                        <span class="task-title" th:text="${task.title}"></span>
+                        <span class="task-description"
+                              th:if="${task.description != null}"
+                              th:text="${task.description}"></span>
+                        <span class="task-date"
+                              th:text="${#strings.substring(task.createdAt, 0, 19).replace('T', ' ')} + ' UTC'"></span>
+                    </div>
+                    <div class="task-actions">
+                        <form method="post" th:action="@{/tasks/{id}/toggle(id=${task.id})}">
+                            <button type="submit" class="btn btn-toggle"
+                                    th:text="${task.completed} ? 'Undo' : 'Done'"></button>
+                        </form>
+                        <form method="post" th:action="@{/tasks/{id}/delete(id=${task.id})}">
+                            <button type="submit" class="btn btn-delete">Delete</button>
+                        </form>
+                    </div>
+                </li>
+            </ul>
+        </section>
+
+    </div>
+</body>
+</html>

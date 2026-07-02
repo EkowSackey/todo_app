@@ -1,0 +1,77 @@
+{
+  "family": "prod-todo",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "<EXECUTION_ROLE_ARN>",
+  "taskRoleArn": "<TASK_ROLE_ARN>",
+  "containerDefinitions": [
+    {
+      "name": "app",
+      "image": "<IMAGE1_NAME>",
+      "essential": true,
+      "stopTimeout": 45,
+      "portMappings": [
+        {
+          "containerPort": 8080,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "DB_PORT",
+          "value": "5432"
+        },
+        {
+          "name": "REDIS_PORT",
+          "value": "6379"
+        },
+        {
+          "name": "JAVA_TOOL_OPTIONS",
+          "value": "-XX:MaxRAMPercentage=75.0"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "DB_HOST",
+          "valueFrom": "/todo/prod/proxy-endpoint"
+        },
+        {
+          "name": "DB_NAME",
+          "valueFrom": "/todo/prod/db-name"
+        },
+        {
+          "name": "DB_USER",
+          "valueFrom": "<DB_SECRET_ARN>:username::"
+        },
+        {
+          "name": "DB_PASSWORD",
+          "valueFrom": "<DB_SECRET_ARN>:password::"
+        },
+        {
+          "name": "REDIS_HOST",
+          "valueFrom": "/todo/prod/redis-endpoint"
+        }
+      ],
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "curl -f http://localhost:8080/actuator/health || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/prod/todo",
+          "awslogs-region": "eu-west-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}
