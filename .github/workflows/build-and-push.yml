@@ -40,14 +40,19 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@4625ce35226a7557230889aae2f52eb50ec3dcda # v2.0.1
 
-      - name: Build and push Docker image
+      # Build once, tag with the immutable sha and with latest. Push ONLY the sha
+      # tag here — the latest push (which triggers the pipeline via EventBridge)
+      # happens last, after the deploy bundle is in place.
+      - name: Build and push image (immutable sha tag)
+        id: build
         env:
           ECR_URI: ${{ steps.login-ecr.outputs.registry }}/${{ env.ENV_NAME }}/${{ env.APP_NAME }}
         run: |
           IMAGE_TAG=sha-${{ github.sha }}
           docker build -t $ECR_URI:$IMAGE_TAG -t $ECR_URI:latest .
           docker push $ECR_URI:$IMAGE_TAG
-          docker push $ECR_URI:latest
+          echo "image_uri=$ECR_URI:$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "ecr_uri=$ECR_URI" >> $GITHUB_OUTPUT
 
       - name: Resolve SSM values for deploy bundle
         id: resolve
@@ -63,17 +68,29 @@ jobs:
           echo "db_secret_arn=${DB_SECRET_ARN}" >> $GITHUB_OUTPUT
           echo "artifacts_bucket=${ARTIFACTS_BUCKET}" >> $GITHUB_OUTPUT
 
+      # Bake the concrete sha-pinned image URI straight into taskdef.json so
+      # CodeDeploy needs no imageDetail.json / Image1 substitution.
       - name: Prepare and upload deploy bundle
         env:
           DB_SECRET_ARN: ${{ steps.resolve.outputs.db_secret_arn }}
           ARTIFACTS_BUCKET: ${{ steps.resolve.outputs.artifacts_bucket }}
+          IMAGE_URI: ${{ steps.build.outputs.image_uri }}
         run: |
           sed \
             -e "s|<EXECUTION_ROLE_ARN>|${{ secrets.EXECUTION_ROLE_ARN }}|g" \
             -e "s|<TASK_ROLE_ARN>|${{ secrets.TASK_ROLE_ARN }}|g" \
             -e "s|<DB_SECRET_ARN>|${DB_SECRET_ARN}|g" \
             -e "s|<AWS_REGION>|${{ secrets.AWS_REGION }}|g" \
+            -e "s|<IMAGE_URI>|${IMAGE_URI}|g" \
             taskdef.json > taskdef-filled.json
           mv taskdef-filled.json taskdef.json
           zip bundle.zip appspec.yaml taskdef.json
           aws s3 cp bundle.zip s3://${ARTIFACTS_BUCKET}/deploy-bundle/bundle.zip
+
+      # Push latest LAST: this is the event that triggers EventBridge -> CodePipeline,
+      # and by now both the sha image and the deploy bundle are already in place.
+      - name: Push latest tag (triggers deployment pipeline)
+        env:
+          ECR_URI: ${{ steps.build.outputs.ecr_uri }}
+        run: |
+          docker push $ECR_URI:latest
