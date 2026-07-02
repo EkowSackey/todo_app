@@ -68,7 +68,7 @@
         "logDriver": "awslogs",
         "options": {
           "awslogs-group": "/ecs/prod/todo",
-          "awslogs-region": "eu-west-1",
+          "awslogs-region": "<AWS_REGION>",
           "awslogs-stream-prefix": "ecs"
         }
       }

@@ -72,6 +72,7 @@ jobs:
             -e "s|<EXECUTION_ROLE_ARN>|${{ secrets.EXECUTION_ROLE_ARN }}|g" \
             -e "s|<TASK_ROLE_ARN>|${{ secrets.TASK_ROLE_ARN }}|g" \
             -e "s|<DB_SECRET_ARN>|${DB_SECRET_ARN}|g" \
+            -e "s|<AWS_REGION>|${{ secrets.AWS_REGION }}|g" \
             taskdef.json > taskdef-filled.json
           mv taskdef-filled.json taskdef.json
           zip bundle.zip appspec.yaml taskdef.json
